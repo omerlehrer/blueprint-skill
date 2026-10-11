@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTTPS Request Through a Load Balancer Blueprint</title>
+<style>
+  :root {
+    --paper: #153a93;
+    --ink: #eef3ff;
+    --ink-dim: rgba(238, 243, 255, 0.72);
+    --grid-minor: rgba(255, 255, 255, 0.055);
+    --grid-major: rgba(255, 255, 255, 0.11);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    height: 100vh;
+    overflow: hidden;
+    cursor: grab;
+    color: var(--ink);
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(var(--grid-major) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+      linear-gradient(var(--grid-minor) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+    background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace;
+    font-size: 11px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    line-height: 1.55;
+  }
+  body.panning { cursor: grabbing; user-select: none; }
+  #stage { position: absolute; left: 0; top: 0; width: 2440px; transform-origin: 0 0; }
+  .sheet { border: 1px solid var(--ink); padding: 18px; display: grid; grid-template-columns: 1240px repeat(3, 1fr); gap: 18px; }
+  .main { min-width: 0; }
+  .side { border: 1px solid var(--ink); display: flex; flex-direction: column; min-width: 0; }
+  .side .panel { border-left: 0; border-top: 1px solid var(--ink); }
+  .side .panel:first-child { border-top: 0; }
+  .side .panel:last-child { flex: 1; }
+  #hud { position: fixed; right: 12px; bottom: 10px; font-size: 9.5px; color: var(--ink-dim);
+    background: var(--paper); border: 1px solid var(--ink-dim); padding: 4px 9px; cursor: default; }
+  .head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .block { border: 1px solid var(--ink); padding: 10px 14px; min-width: 250px; }
+  .block dt { font-size: 9px; color: var(--ink-dim); margin-top: 8px; }
+  .block dt:first-child { margin-top: 0; }
+  .block dd { margin: 0; font-size: 13px; }
+  .block dd.big { font-size: 17px; letter-spacing: 0.14em; }
+  dl { margin: 0; }
+  svg { display: block; width: 100%; height: auto; }
+  svg text { fill: var(--ink); font-family: inherit; letter-spacing: 0.08em; }
+  .row { display: grid; border: 1px solid var(--ink); margin-top: 18px; }
+  .row.three { grid-template-columns: repeat(3, 1fr); }
+  .panel { padding: 12px 14px; border-left: 1px solid var(--ink); min-width: 0; }
+  .panel:first-child { border-left: 0; }
+  h2 { margin: 0 0 10px; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; }
+  ol, ul { margin: 0; padding: 0; list-style: none; }
+  ol li { display: grid; grid-template-columns: 26px 1fr; margin-bottom: 7px; }
+  ol li b {
+    width: 18px; height: 18px; border: 1px solid var(--ink); border-radius: 50%;
+    font-weight: 400; font-size: 10px; text-align: center; line-height: 16px; letter-spacing: 0;
+  }
+  ul li { padding-left: 14px; position: relative; margin-bottom: 7px; }
+  ul li::before { content: ""; position: absolute; left: 0; top: 6px; width: 4px; height: 4px; border-radius: 50%; background: var(--ink); }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 2px 0; vertical-align: top; }
+  td:first-child { white-space: nowrap; padding-right: 14px; }
+  .dims td:last-child { text-align: right; white-space: nowrap; }
+  .index td:last-child { color: var(--ink-dim); }
+  .index th { text-align: left; font-weight: 400; font-size: 9px; letter-spacing: 0.16em; padding: 9px 0 3px; border-bottom: 1px solid var(--ink-dim); }
+  .index tr:first-child th { padding-top: 0; }
+  .index td { padding-top: 3px; }
+  .cap { color: var(--ink-dim); font-size: 9.5px; margin-top: 8px; }
+  .code, svg text.code { text-transform: none; }
+  ol li span, ul li, .cap, .index td:last-child { text-transform: none; letter-spacing: 0.04em; }
+</style>
+</head>
+<body>
+<div id="stage">
+<div class="sheet">
+
+  <!-- MAIN COLUMN: header, main drawing, three detail views. -->
+  <div class="main">
+  <div class="head">
+    <div class="block">
+      <dl>
+        <dt>Date:</dt>
+        <dd>2026-10-11</dd>
+        <dt>Repo:</dt>
+        <dd>NONE</dd>
+        <dt>Subject:</dt>
+        <dd class="big">HTTPS request through a load balancer</dd>
+      </dl>
+    </div>
+  </div>
+
+  <svg viewBox="0 0 1200 566" role="img" aria-label="Main drawing" style="margin-top:14px">
+    <defs>
+      <marker id="arr" markerWidth="9" markerHeight="7" refX="8.5" refY="3.5" orient="auto-start-reverse">
+        <path d="M0,0 L9,3.5 L0,7 z" fill="#eef3ff"/>
+      </marker>
+      <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="6" stroke="#eef3ff" stroke-opacity="0.2" stroke-width="1"/>
+      </pattern>
+      <pattern id="cross" width="8" height="8" patternUnits="userSpaceOnUse">
+        <path d="M0,0 H8 M0,0 V8" stroke="#eef3ff" stroke-opacity="0.16" stroke-width="1" fill="none"/>
+      </pattern>
+    </defs>
+    <style>
+      .ln { stroke: #eef3ff; stroke-width: 1.2; fill: none; }
+      .bx { stroke: #eef3ff; stroke-width: 1.2; fill: #153a93; }
+      .hx { stroke: #eef3ff; stroke-width: 1.2; fill: url(#hatch); }
+      .cx { stroke: #eef3ff; stroke-width: 1.2; fill: url(#cross); }
+      .dash { stroke-dasharray: 6 4; }
+      .thin { stroke: #eef3ff; stroke-width: 0.8; fill: none; }
+      .t { font-size: 10px; text-anchor: middle; }
+      .h { font-size: 11.5px; text-anchor: middle; letter-spacing: 0.14em; }
+      .s { font-size: 7.8px; text-anchor: middle; fill-opacity: 0.75; }
+      .bl { fill: #153a93; stroke: #eef3ff; stroke-width: 1.1; }
+      .bt { font-size: 9.5px; text-anchor: middle; letter-spacing: 0; }
+      .zn { stroke: #eef3ff; stroke-width: 2.2; fill: none; }
+      .z { font-size: 13px; text-anchor: middle; letter-spacing: 0.22em; }
+      .ic { stroke: #eef3ff; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .l { text-anchor: start; }
+      .r { text-anchor: end; }
+      .dot { fill: #eef3ff; stroke: none; }
+    </style>
+
+    <!-- group frames -->
+    <rect class="zn" x="20" y="48" width="176" height="140"/>
+    <text class="z" x="108" y="36">CLIENT</text>
+    <rect class="zn" x="20" y="232" width="176" height="252"/>
+    <text class="z" x="108" y="220">DNS</text>
+    <rect class="zn" x="246" y="48" width="524" height="436"/>
+    <text class="z" x="508" y="36">LOAD BALANCER</text>
+    <rect class="zn" x="838" y="48" width="172" height="436"/>
+    <text class="z" x="924" y="36">APP SERVERS</text>
+    <rect class="zn" x="1054" y="48" width="134" height="436"/>
+    <text class="z" x="1121" y="36">DATA</text>
+
+    <!-- boxes -->
+    <rect class="bx" x="33" y="104" width="150" height="60"/>
+    <rect class="bx dash" x="33" y="254" width="150" height="60"/>
+    <rect class="cx" x="33" y="404" width="150" height="60"/>
+    <rect class="bx" x="262" y="104" width="136" height="60"/>
+    <rect class="cx" x="262" y="254" width="136" height="60"/>
+    <rect class="bx" x="440" y="104" width="136" height="60"/>
+    <rect class="bx" x="440" y="254" width="136" height="60"/>
+    <rect class="bx" x="618" y="104" width="136" height="60"/>
+    <rect class="bx" x="618" y="254" width="136" height="60"/>
+    <rect class="bx" x="618" y="404" width="136" height="60"/>
+    <rect class="cx" x="262" y="404" width="314" height="60"/>
+    <rect class="hx" x="852" y="104" width="144" height="60"/>
+    <rect class="hx" x="852" y="254" width="144" height="60"/>
+    <rect class="hx" x="852" y="404" width="144" height="60"/>
+    <rect class="cx" x="1066" y="104" width="110" height="360"/>
+
+    <g class="ic" transform="translate(101,110) scale(0.5833)"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></g>
+    <g class="ic" transform="translate(101,260) scale(0.5833)"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></g>
+    <g class="ic" transform="translate(101,410) scale(0.5833)"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></g>
+    <g class="ic" transform="translate(323,110) scale(0.5833)"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></g>
+    <g class="ic" transform="translate(323,260) scale(0.5833)"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></g>
+    <g class="ic" transform="translate(501,110) scale(0.5833)"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></g>
+    <g class="ic" transform="translate(501,260) scale(0.5833)"><path d="M12 3v18"/><path d="m19 8 3 8a5 5 0 0 1-6 0zV7"/><path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1"/><path d="m5 8 3 8a5 5 0 0 1-6 0zV7"/><path d="M7 21h10"/></g>
+    <g class="ic" transform="translate(679,110) scale(0.5833)"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></g>
+    <g class="ic" transform="translate(679,260) scale(0.5833)"><path d="M17 19a1 1 0 0 1-1-1v-2a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2a1 1 0 0 1-1 1z"/><path d="M17 21v-2"/><path d="M19 14V6.5a1 1 0 0 0-7 0v11a1 1 0 0 1-7 0V10"/><path d="M21 21v-2"/><path d="M3 5V3"/><path d="M4 10a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a2 2 0 0 1-2 2z"/><path d="M7 5V3"/></g>
+    <g class="ic" transform="translate(679,410) scale(0.5833)"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/><path d="M3.22 13H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/></g>
+    <g class="ic" transform="translate(412,410) scale(0.5833)"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></g>
+    <g class="ic" transform="translate(917,110) scale(0.5833)"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></g>
+    <g class="ic" transform="translate(917,260) scale(0.5833)"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></g>
+    <g class="ic" transform="translate(917,410) scale(0.5833)"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></g>
+    <g class="ic" transform="translate(1114,110) scale(0.5833)"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></g>
+
+    <text class="t" x="108" y="140">BROWSER</text><text class="s" x="108" y="154">203.0.113.25</text>
+    <text class="t" x="108" y="290">DNS RESOLVER</text><text class="s" x="108" y="304">UDP PORT 53</text>
+    <text class="t" x="108" y="440">A RECORD</text><text class="s code" x="108" y="454">198.51.100.10 · TTL 60 s</text>
+    <text class="t" x="330" y="140">TLS LISTENER</text><text class="s" x="330" y="154">TCP PORT 443 · TLS 1.3</text>
+    <text class="t" x="330" y="290">CERTIFICATE, KEY</text><text class="s code" x="330" y="304">shop.example.com</text>
+    <text class="t" x="508" y="140">HTTP ROUTER</text><text class="s" x="508" y="154">HOST AND PATH RULES</text>
+    <text class="t" x="508" y="290">SERVER SELECTOR</text><text class="s" x="508" y="304">LEAST CONNECTIONS</text>
+    <text class="t" x="686" y="140">UPSTREAM PROXY</text><text class="s" x="686" y="154">HTTP/1.1 TO PORT 8080</text>
+    <text class="t" x="686" y="290">CONNECTION POOL</text><text class="s" x="686" y="304">REUSE OF CONNECTIONS</text>
+    <text class="t" x="686" y="440">HEALTH CHECKER</text><text class="s code" x="686" y="454">GET /healthz · EACH 5 s</text>
+    <text class="t" x="419" y="440">SERVER TABLE</text><text class="s" x="419" y="454">STATE AND ACTIVE CONNECTIONS OF EACH SERVER</text>
+    <text class="t" x="924" y="140">APP-1</text><text class="s" x="924" y="154">10.0.1.11:8080</text>
+    <text class="t" x="924" y="290">APP-2</text><text class="s" x="924" y="304">10.0.1.12:8080</text>
+    <text class="t" x="924" y="440">APP-3</text><text class="s" x="924" y="454">10.0.1.13:8080</text>
+    <text class="t" x="1121" y="140">DATABASE</text><text class="s" x="1121" y="154">10.0.2.20:5432</text>
+    <text class="s" x="1121" y="258">CONNECTION LIMIT</text><text class="t" x="1121" y="273">100</text>
+    <text class="s" x="1121" y="408">POOL CONNECTIONS</text><text class="t code" x="1121" y="423">3 x 10 = 30</text>
+
+    <!-- client and DNS -->
+    <path class="ln" d="M72,164 V254" marker-end="url(#arr)"/>
+    <path class="ln dash" d="M144,254 V164" marker-end="url(#arr)"/>
+    <path class="ln" d="M108,314 V404" marker-end="url(#arr)"/>
+    <!-- request row -->
+    <line class="ln" x1="183" y1="122" x2="262" y2="122" marker-end="url(#arr)"/>
+    <line class="ln dash" x1="262" y1="146" x2="183" y2="146" marker-end="url(#arr)"/>
+    <line class="ln" x1="398" y1="122" x2="440" y2="122" marker-end="url(#arr)"/>
+    <line class="ln dash" x1="440" y1="146" x2="398" y2="146" marker-end="url(#arr)"/>
+    <line class="ln" x1="576" y1="122" x2="618" y2="122" marker-end="url(#arr)"/>
+    <line class="ln dash" x1="618" y1="146" x2="576" y2="146" marker-end="url(#arr)"/>
+    <line class="ln" x1="754" y1="114" x2="852" y2="114" marker-end="url(#arr)"/>
+    <line class="ln dash" x1="852" y1="134" x2="754" y2="134" marker-end="url(#arr)"/>
+    <line class="ln" x1="996" y1="122" x2="1066" y2="122" marker-end="url(#arr)"/>
+    <line class="ln dash" x1="1066" y1="146" x2="996" y2="146" marker-end="url(#arr)"/>
+    <line class="ln" x1="996" y1="284" x2="1066" y2="284" marker-end="url(#arr)"/>
+    <line class="ln" x1="996" y1="434" x2="1066" y2="434" marker-end="url(#arr)"/>
+    <!-- calls in the load balancer -->
+    <path class="ln" d="M330,164 V254" marker-end="url(#arr)"/>
+    <path class="ln" d="M508,164 V254" marker-end="url(#arr)"/>
+    <path class="ln" d="M508,314 V404" marker-end="url(#arr)"/>
+    <path class="ln" d="M686,164 V254" marker-end="url(#arr)"/>
+    <!-- health checks -->
+    <path class="ln" d="M754,454 H852" marker-end="url(#arr)"/>
+    <path class="ln" d="M804,454 V304 H852" marker-end="url(#arr)"/>
+    <path class="ln" d="M804,304 V154 H852" marker-end="url(#arr)"/>
+    <circle class="dot" cx="804" cy="454" r="2.2"/><circle class="dot" cx="804" cy="304" r="2.2"/>
+    <line class="ln" x1="618" y1="434" x2="576" y2="434" marker-end="url(#arr)"/>
+
+    <!-- balloons -->
+    <circle class="bl" cx="72" cy="210" r="9"/><text class="bt" x="72" y="213.5">1</text>
+    <circle class="bl" cx="108" cy="359" r="9"/><text class="bt" x="108" y="362.5">2</text>
+    <circle class="bl" cx="144" cy="210" r="9"/><text class="bt" x="144" y="213.5">3</text>
+    <circle class="bl" cx="221" cy="122" r="9"/><text class="bt" x="221" y="125.5">4</text>
+    <circle class="bl" cx="330" cy="209" r="9"/><text class="bt" x="330" y="212.5">5</text>
+    <circle class="bl" cx="419" cy="122" r="9"/><text class="bt" x="419" y="125.5">6</text>
+    <circle class="bl" cx="508" cy="209" r="9"/><text class="bt" x="508" y="212.5">7</text>
+    <circle class="bl" cx="508" cy="359" r="9"/><text class="bt" x="508" y="362.5">8</text>
+    <circle class="bl" cx="597" cy="122" r="9"/><text class="bt" x="597" y="125.5">9</text>
+    <circle class="bl" cx="686" cy="209" r="9"/><text class="bt" x="686" y="212.5">10</text>
+    <circle class="bl" cx="792" cy="114" r="9"/><text class="bt" x="792" y="117.5">11</text>
+    <circle class="bl" cx="1031" cy="122" r="9"/><text class="bt" x="1031" y="125.5">12</text>
+    <circle class="bl" cx="1031" cy="146" r="9"/><text class="bt" x="1031" y="149.5">13</text>
+    <circle class="bl" cx="818" cy="134" r="9"/><text class="bt" x="818" y="137.5">14</text>
+    <circle class="bl" cx="221" cy="146" r="9"/><text class="bt" x="221" y="149.5">15</text>
+    <circle class="bl" cx="804" cy="379" r="9"/><text class="bt" x="804" y="382.5">16</text>
+    <circle class="bl" cx="597" cy="434" r="9"/><text class="bt" x="597" y="437.5">17</text>
+
+    <!-- dimension lines: round trip times -->
+    <path class="thin" d="M183,100 V68 M262,100 V68"/>
+    <line class="thin" x1="183" y1="76" x2="262" y2="76" marker-start="url(#arr)" marker-end="url(#arr)"/>
+    <text class="t code" x="222.5" y="70">40 ms</text><text class="s" x="222.5" y="88">(RTT)</text>
+    <path class="thin" d="M754,100 V68 M852,100 V68"/>
+    <line class="thin" x1="754" y1="76" x2="852" y2="76" marker-start="url(#arr)" marker-end="url(#arr)"/>
+    <text class="t code" x="803" y="70">1 ms</text><text class="s" x="803" y="88">(RTT)</text>
+
+    <!-- legend -->
+    <rect class="bx" x="20" y="506" width="30" height="16"/><text class="s l" x="58" y="517">PART THAT SENDS OR HANDLES A REQUEST</text>
+    <rect class="hx" x="312" y="506" width="30" height="16"/><text class="s l" x="350" y="517">APPLICATION SERVER</text>
+    <rect class="cx" x="566" y="506" width="30" height="16"/><text class="s l" x="604" y="517">STORED DATA</text>
+    <rect class="bx dash" x="820" y="506" width="30" height="16"/><text class="s l" x="858" y="517">EXTERNAL SERVICE</text>
+    <line class="ln" x1="20" y1="546" x2="50" y2="546" marker-end="url(#arr)"/><text class="s l" x="58" y="549">REQUEST OR CALL</text>
+    <line class="ln dash" x1="312" y1="546" x2="342" y2="546" marker-end="url(#arr)"/><text class="s l" x="350" y="549">RESPONSE</text>
+    <circle class="bl" cx="581" cy="546" r="9"/><text class="bt" x="581" y="549.5">N</text><text class="s l" x="604" y="549">STEP OF THE SEQUENCE</text>
+    <line class="thin" x1="820" y1="546" x2="850" y2="546" marker-start="url(#arr)" marker-end="url(#arr)"/><text class="s l" x="858" y="549">REAL QUANTITY · NOT TO SCALE · RTT: ROUND TRIP TIME</text>
+  </svg>
+
+  <div class="row three">
+    <div class="panel">
+      <h2>View A: health check state change</h2>
+      <svg viewBox="0 0 380 230" role="img" aria-label="View A">
+        <text class="s l" x="23" y="14">RESULT OF EACH HEALTH CHECK ON APP-3</text>
+        <!-- count dimensions -->
+        <path class="thin" d="M73,58 V32 M207,58 V32 M223,58 V32 M307,58 V32"/>
+        <line class="thin" x1="73" y1="38" x2="207" y2="38" marker-start="url(#arr)" marker-end="url(#arr)"/>
+        <text class="t" x="140" y="32">3</text><text class="s" x="140" y="50">(FAILURES)</text>
+        <line class="thin" x1="223" y1="38" x2="307" y2="38" marker-start="url(#arr)" marker-end="url(#arr)"/>
+        <text class="t" x="265" y="32">2</text><text class="s" x="265" y="50">(SUCCESSES)</text>
+        <!-- check results -->
+        <rect class="bx" x="23" y="62" width="34" height="20"/><text class="t" x="40" y="75.5">200</text>
+        <rect class="hx" x="73" y="62" width="34" height="20"/><text class="t" x="90" y="75.5">503</text>
+        <rect class="hx" x="123" y="62" width="34" height="20"/><text class="t" x="140" y="75.5">503</text>
+        <rect class="hx" x="173" y="62" width="34" height="20"/><text class="t" x="190" y="75.5">503</text>
+        <rect class="bx" x="223" y="62" width="34" height="20"/><text class="t" x="240" y="75.5">200</text>
+        <rect class="bx" x="273" y="62" width="34" height="20"/><text class="t" x="290" y="75.5">200</text>
+        <rect class="bx" x="323" y="62" width="34" height="20"/><text class="t" x="340" y="75.5">200</text>
+        <!-- time axis, 10 px = 1 s -->
+        <path class="thin" d="M40,82 V104 M90,82 V104 M140,82 V104 M190,82 V104 M240,82 V104 M290,82 V104 M340,82 V104"/>
+        <line class="ln" x1="23" y1="104" x2="372" y2="104" marker-end="url(#arr)"/>
+        <text class="s" x="40" y="118">0</text><text class="s" x="90" y="118">5</text><text class="s" x="140" y="118">10</text>
+        <text class="s" x="190" y="118">15</text><text class="s" x="240" y="118">20</text><text class="s" x="290" y="118">25</text>
+        <text class="s" x="340" y="118">30</text><text class="s code" x="364" y="118">s</text>
+        <!-- state band -->
+        <rect class="bx" x="23" y="132" width="167" height="24"/><text class="t" x="106" y="147.5">UP</text>
+        <rect class="hx" x="190" y="132" width="100" height="24"/><text class="t" x="240" y="147.5">DOWN</text>
+        <rect class="bx" x="290" y="132" width="67" height="24"/><text class="t" x="323" y="147.5">UP</text>
+        <text class="s l" x="23" y="170">STATE OF APP-3 IN THE SERVER TABLE</text>
+        <!-- time dimensions -->
+        <path class="thin" d="M40,178 V206 M90,178 V206 M190,178 V206 M290,178 V206"/>
+        <line class="thin" x1="40" y1="200" x2="90" y2="200" marker-start="url(#arr)" marker-end="url(#arr)"/>
+        <text class="t code" x="65" y="194">5 s</text><text class="s" x="65" y="214">(INTERVAL)</text>
+        <line class="thin" x1="190" y1="200" x2="290" y2="200" marker-start="url(#arr)" marker-end="url(#arr)"/>
+        <text class="t code" x="240" y="194">10 s</text><text class="s" x="240" y="214">(APP-3 IS DOWN)</text>
+      </svg>
+      <p class="cap">APP-3 fails at 2 s and operates again at 17 s. Three failures in sequence set the state to DOWN. Two successes in sequence set the state to UP. The time axis is to scale.</p>
+    </div>
+    <div class="panel">
+      <h2>View B: server selection</h2>
+      <svg viewBox="0 0 380 230" role="img" aria-label="View B">
+        <text class="s l" x="150" y="14">SERVER</text><text class="s l" x="205" y="14">ACTIVE CONNECTIONS</text><text class="s r" x="356" y="14">COUNT</text>
+        <rect class="bx" x="10" y="27" width="90" height="40"/><text class="t" x="55" y="50.5">SELECTOR</text>
+        <line class="ln" x1="100" y1="47" x2="140" y2="47" marker-end="url(#arr)"/>
+        <!-- APP-1 -->
+        <rect class="bx" x="140" y="24" width="226" height="46"/>
+        <text class="t l" x="150" y="44">APP-1</text><text class="s l" x="150" y="58">UP</text>
+        <rect class="hx" x="205" y="39" width="16" height="16"/><rect class="hx" x="226" y="39" width="16" height="16"/>
+        <rect class="bx dash" x="247" y="39" width="16" height="16"/>
+        <text class="t r" x="356" y="50.5">2 + 1</text>
+        <!-- APP-2 -->
+        <rect class="bx" x="140" y="92" width="226" height="46"/>
+        <text class="t l" x="150" y="112">APP-2</text><text class="s l" x="150" y="126">UP</text>
+        <rect class="hx" x="205" y="107" width="16" height="16"/><rect class="hx" x="226" y="107" width="16" height="16"/><rect class="hx" x="247" y="107" width="16" height="16"/>
+        <text class="t r" x="356" y="118.5">3</text>
+        <!-- APP-3 -->
+        <rect class="bx" x="140" y="160" width="226" height="46"/>
+        <text class="t l" x="150" y="180">APP-3</text><text class="s l" x="150" y="194">UP</text>
+        <rect class="hx" x="205" y="175" width="16" height="16"/><rect class="hx" x="226" y="175" width="16" height="16"/><rect class="hx" x="247" y="175" width="16" height="16"/>
+        <text class="t r" x="356" y="186.5">3</text>
+        <!-- rules -->
+        <text class="s l" x="10" y="104">RULE:</text><text class="s l" x="10" y="116">LEAST ACTIVE</text><text class="s l" x="10" y="128">CONNECTIONS</text>
+        <text class="s l" x="10" y="172">TIE RULE:</text><text class="s l" x="10" y="184">FIRST SERVER</text><text class="s l" x="10" y="196">IN THE TABLE</text>
+        <rect class="hx" x="140" y="214" width="10" height="10"/><text class="s l" x="156" y="222.5">ACTIVE CONNECTION</text>
+        <rect class="bx dash" x="268" y="214" width="10" height="10"/><text class="s l" x="284" y="222.5">NEW REQUEST</text>
+      </svg>
+      <p class="cap">The server selector compares the servers in the state UP. APP-1 has 2 active connections, so APP-1 gets the request. Then each server has 3 active connections.</p>
+    </div>
+    <div class="panel">
+      <h2>View C: TLS termination</h2>
+      <svg viewBox="0 0 380 230" role="img" aria-label="View C">
+        <rect class="cx" x="108" y="8" width="170" height="30"/><text class="s" x="193" y="26">CERTIFICATE AND PRIVATE KEY</text>
+        <path class="ln" d="M193,62 V38" marker-end="url(#arr)"/>
+        <rect class="bx" x="8" y="62" width="72" height="44"/><text class="t" x="44" y="87.5">BROWSER</text>
+        <rect class="bx" x="158" y="62" width="70" height="44"/><text class="t" x="193" y="81.5">LOAD</text><text class="t" x="193" y="94.5">BALANCER</text>
+        <rect class="hx" x="300" y="62" width="72" height="44"/><text class="t" x="336" y="87.5">APP-1</text>
+        <!-- two connections -->
+        <rect class="hx" x="80" y="74" width="78" height="20"/><text class="s" x="119" y="87">PORT 443</text>
+        <rect class="bx" x="228" y="74" width="72" height="20"/><text class="s" x="264" y="87">PORT 8080</text>
+        <text class="s" x="119" y="67">TLS 1.3</text><text class="s" x="264" y="67">HTTP/1.1</text>
+        <path class="thin" d="M119,94 V134 M264,94 V134"/>
+        <!-- what each connection carries -->
+        <rect class="hx" x="8" y="134" width="164" height="80"/>
+        <text class="t" x="90" y="156">ENCRYPTED RECORD</text>
+        <text class="s code" x="90" y="174">TLS_AES_128_GCM_SHA256</text>
+        <text class="s" x="90" y="190">THE PATH IS NOT VISIBLE</text>
+        <text class="s" x="90" y="203">THE HEADERS ARE NOT VISIBLE</text>
+        <rect class="bx" x="200" y="134" width="172" height="80"/>
+        <text class="s code l" x="210" y="153">GET /cart HTTP/1.1</text>
+        <text class="s code l" x="210" y="168">Host: shop.example.com</text>
+        <text class="s code l" x="210" y="183">X-Forwarded-For: 203.0.113.25</text>
+        <text class="s code l" x="210" y="198">X-Forwarded-Proto: https</text>
+      </svg>
+      <p class="cap">The load balancer decrypts the request and reads the path. It adds two headers and sends the plain request to APP-1. Only the load balancer holds the private key.</p>
+    </div>
+  </div>
+  </div>
+
+  <!-- SIDE COLUMN 1: sequence, key dimensions. -->
+  <div class="side">
+    <div class="panel">
+      <h2>Sequence</h2>
+      <ol>
+        <li><b>1</b><span>The browser asks the DNS resolver for the address of <span class="code">shop.example.com</span>.</span></li>
+        <li><b>2</b><span>The DNS resolver reads the A record of the name.</span></li>
+        <li><b>3</b><span>The DNS resolver returns the address 198.51.100.10. The browser keeps the address for 60 s.</span></li>
+        <li><b>4</b><span>The browser opens a TCP connection to port 443. Then the browser starts the TLS 1.3 handshake.</span></li>
+        <li><b>5</b><span>The TLS listener reads the certificate. It signs the handshake with the private key.</span></li>
+        <li><b>6</b><span>The TLS listener decrypts the request <span class="code">GET /cart</span>. It gives the plain request to the HTTP router.</span></li>
+        <li><b>7</b><span>The HTTP router asks the server selector for one server.</span></li>
+        <li><b>8</b><span>The server selector reads the server table. It selects APP-1, which has the fewest active connections.</span></li>
+        <li><b>9</b><span>The HTTP router gives the request and the server name to the upstream proxy.</span></li>
+        <li><b>10</b><span>The upstream proxy takes an idle connection to APP-1 from the connection pool.</span></li>
+        <li><b>11</b><span>The upstream proxy adds two headers. It sends the request to APP-1 on port 8080.</span></li>
+        <li><b>12</b><span>APP-1 sends one query to the database on port 5432.</span></li>
+        <li><b>13</b><span>The database returns the rows of the cart.</span></li>
+        <li><b>14</b><span>APP-1 returns the status 200 and the page to the upstream proxy.</span></li>
+        <li><b>15</b><span>The TLS listener encrypts the response. It sends the response to the browser on the same connection.</span></li>
+        <li><b>16</b><span>The health checker sends <span class="code">GET /healthz</span> to each server every 5 s.</span></li>
+        <li><b>17</b><span>The health checker writes the state of each server to the server table.</span></li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h2>Key dimensions</h2>
+      <table class="dims">
+        <tr><td>Application servers</td><td>3</td></tr>
+        <tr><td>Health check interval</td><td class="code">5 s</td></tr>
+        <tr><td>Health check time limit</td><td class="code">2 s</td></tr>
+        <tr><td>Failures to set DOWN</td><td>3</td></tr>
+        <tr><td>Successes to set UP</td><td>2</td></tr>
+        <tr><td>Longest time to set DOWN</td><td class="code">17 s</td></tr>
+        <tr><td>Longest time to set UP</td><td class="code">10 s</td></tr>
+        <tr><td>Idle limit, browser connection</td><td class="code">60 s</td></tr>
+        <tr><td>Response time limit</td><td class="code">30 s</td></tr>
+        <tr><td>DNS record lifetime (TTL)</td><td class="code">60 s</td></tr>
+        <tr><td>First request</td><td class="code">153 ms</td></tr>
+        <tr><td>Next request</td><td class="code">53 ms</td></tr>
+        <tr><td>Database connections in use</td><td>30 of 100</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- SIDE COLUMN 2: index. -->
+  <div class="side">
+    <div class="panel">
+      <h2>Index</h2>
+      <table class="index">
+        <tr><th colspan="2">Client</th></tr>
+        <tr><td>Browser</td><td>Sends the HTTPS request and shows the page.</td></tr>
+        <tr><th colspan="2">DNS</th></tr>
+        <tr><td>DNS resolver</td><td>Finds the address of a host name. It is an external service.</td></tr>
+        <tr><td>A record</td><td>Holds the public address of the load balancer.</td></tr>
+        <tr><th colspan="2">Load balancer</th></tr>
+        <tr><td>TLS listener</td><td>Accepts the connections on port 443. It terminates TLS.</td></tr>
+        <tr><td>Certificate, key</td><td>Prove the identity of <span class="code">shop.example.com</span> to the browser.</td></tr>
+        <tr><td>HTTP router</td><td>Reads the host and the path. It applies the rules.</td></tr>
+        <tr><td>Server selector</td><td>Selects the server with the fewest active connections.</td></tr>
+        <tr><td>Server table</td><td>Holds the state and the connection count of each server.</td></tr>
+        <tr><td>Upstream proxy</td><td>Sends the request to the server. It gets the response.</td></tr>
+        <tr><td>Connection pool</td><td>Keeps open connections to the servers for the next requests.</td></tr>
+        <tr><td>Health checker</td><td>Does a test of each server every 5 s. It sets the state.</td></tr>
+        <tr><th colspan="2">App servers</th></tr>
+        <tr><td>APP-1</td><td>Runs the application. It answers the request on this sheet.</td></tr>
+        <tr><td>APP-2</td><td>Runs the same application. It can answer the next request.</td></tr>
+        <tr><td>APP-3</td><td>Runs the same application. View A shows its failure.</td></tr>
+        <tr><th colspan="2">Data</th></tr>
+        <tr><td>Database</td><td>Holds the cart data. All three servers use it.</td></tr>
+        <tr><th colspan="2">Terms</th></tr>
+        <tr><td>TLS termination</td><td>The load balancer decrypts the traffic. The servers get plain HTTP.</td></tr>
+        <tr><td>Health check</td><td>A test request shows if a server can answer.</td></tr>
+        <tr><td>Active connection</td><td>An active connection carries a request at this time.</td></tr>
+        <tr><td>Round trip time</td><td>A message gets to a host and the answer returns in this time.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- SIDE COLUMN 3: notes, detail drawing. -->
+  <div class="side">
+    <div class="panel">
+      <h2>Notes:</h2>
+      <ul>
+        <li>The load balancer sends a request only to a server in the state UP.</li>
+        <li>The load balancer returns the status 503 when all servers are in the state DOWN.</li>
+        <li>The load balancer returns the status 504 when a server gives no response in 30 s.</li>
+        <li>The connection to a server has no encryption. Keep the servers on a private network.</li>
+        <li>A server sees the address of the load balancer as the source. The header <span class="code">X-Forwarded-For</span> gives the address of the browser.</li>
+        <li>The servers keep no session data in memory. Thus each server can answer each request.</li>
+        <li>This object has one load balancer. If it fails, no request gets to a server.</li>
+        <li>The pools use 30 of the 100 database connections.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h2>Detail: time of the first request</h2>
+      <svg viewBox="0 0 340 642" role="img" aria-label="Detail">
+        <!-- ladder, time goes down, 3 px = 1 ms -->
+        <rect class="bx" x="72" y="8" width="56" height="28"/><text class="s" x="100" y="25">BROWSER</text>
+        <rect class="bx dash" x="137" y="8" width="56" height="28"/><text class="s" x="165" y="20">DNS</text><text class="s" x="165" y="30">RESOLVER</text>
+        <rect class="bx" x="212" y="8" width="56" height="28"/><text class="s" x="240" y="20">LOAD</text><text class="s" x="240" y="30">BALANCER</text>
+        <rect class="hx" x="283" y="8" width="50" height="28"/><text class="s" x="308" y="25">APP-1</text>
+        <path class="thin" d="M100,36 V516 M165,36 V116 M240,36 V516 M308,36 V411.5 M308,447.5 V516"/>
+        <line class="ln" x1="100" y1="50" x2="165" y2="80" marker-end="url(#arr)"/><text class="s l" x="172" y="68">QUERY</text>
+        <line class="ln dash" x1="165" y1="80" x2="100" y2="110" marker-end="url(#arr)"/><text class="s l" x="172" y="98">ANSWER</text>
+        <line class="ln" x1="100" y1="110" x2="240" y2="170" marker-end="url(#arr)"/><text class="s" x="170" y="135" transform="rotate(23.2 170 140)">SYN</text>
+        <line class="ln dash" x1="240" y1="170" x2="100" y2="230" marker-end="url(#arr)"/><text class="s" x="170" y="195" transform="rotate(-23.2 170 200)">SYN, ACK</text>
+        <line class="ln" x1="100" y1="230" x2="240" y2="290" marker-end="url(#arr)"/><text class="s" x="170" y="255" transform="rotate(23.2 170 260)">ACK, CLIENT HELLO</text>
+        <line class="ln dash" x1="240" y1="290" x2="100" y2="350" marker-end="url(#arr)"/><text class="s" x="170" y="315" transform="rotate(-23.2 170 320)">HELLO, CERTIFICATE</text>
+        <line class="ln" x1="100" y1="350" x2="240" y2="410" marker-end="url(#arr)"/><text class="s code" x="170" y="375" transform="rotate(23.2 170 380)">FINISHED, GET /cart</text>
+        <line class="ln dash" x1="240" y1="449" x2="100" y2="509" marker-end="url(#arr)"/><text class="s" x="170" y="474" transform="rotate(-23.2 170 479)">STATUS 200, PAGE</text>
+        <line class="ln" x1="240" y1="410" x2="303" y2="411.5" marker-end="url(#arr)"/>
+        <rect class="hx" x="303" y="411.5" width="10" height="36"/>
+        <line class="ln dash" x1="303" y1="447.5" x2="240" y2="449" marker-end="url(#arr)"/>
+        <text class="s code" x="272" y="433">12 ms</text>
+        <!-- phases -->
+        <path class="thin" d="M52,50 H96 M52,110 H96 M52,230 H96 M52,350 H96 M52,509 H96"/>
+        <line class="thin" x1="60" y1="50" x2="60" y2="110" marker-start="url(#arr)" marker-end="url(#arr)"/>
+        <text class="t code" x="30" y="79">20 ms</text><text class="s" x="30" y="91">(DNS)</text>
+        <line class="thin" x1="60" y1="110" x2="60" y2="230" marker-start="url(#arr)" marker-end="url(#arr)"/>
+        <text class="t code" x="30" y="169">40 ms</text><text class="s" x="30" y="181">(TCP)</text>
+        <line class="thin" x1="60" y1="230" x2="60" y2="350" marker-start="url(#arr)" marker-end="url(#arr)"/>
+        <text class="t code" x="30" y="289">40 ms</text><text class="s" x="30" y="301">(TLS 1.3)</text>
+        <line class="thin" x1="60" y1="350" x2="60" y2="509" marker-start="url(#arr)" marker-end="url(#arr)"/>
+        <text class="t code" x="30" y="428">53 ms</text><text class="s" x="30" y="440">(HTTP)</text>
+        <!-- parts of the HTTP time -->
+        <text class="s l" x="8" y="534">PARTS OF THE HTTP TIME · NOT TO SCALE</text>
+        <rect class="bx" x="8" y="542" width="96" height="24"/><text class="s" x="56" y="557">PUBLIC NETWORK</text>
+        <rect class="bx" x="104" y="542" width="96" height="24"/><text class="s" x="152" y="557">PRIVATE NETWORK</text>
+        <rect class="hx" x="200" y="542" width="66" height="24"/><text class="s" x="233" y="557">APP-1</text>
+        <rect class="cx" x="266" y="542" width="66" height="24"/><text class="s" x="299" y="557">DATABASE</text>
+        <path class="thin" d="M8,570 V630 M332,570 V630 M104,570 V594 M200,570 V594 M266,570 V594"/>
+        <line class="thin" x1="8" y1="588" x2="104" y2="588" marker-start="url(#arr)" marker-end="url(#arr)"/>
+        <text class="t code" x="56" y="582">40 ms</text><text class="s" x="56" y="600">(ROUND TRIP)</text>
+        <line class="thin" x1="104" y1="588" x2="200" y2="588" marker-start="url(#arr)" marker-end="url(#arr)"/>
+        <text class="t code" x="152" y="582">1 ms</text><text class="s" x="152" y="600">(ROUND TRIP)</text>
+        <line class="thin" x1="200" y1="588" x2="266" y2="588" marker-start="url(#arr)" marker-end="url(#arr)"/>
+        <text class="t code" x="233" y="582">8 ms</text><text class="s" x="233" y="600">(CODE)</text>
+        <line class="thin" x1="266" y1="588" x2="332" y2="588" marker-start="url(#arr)" marker-end="url(#arr)"/>
+        <text class="t code" x="299" y="582">4 ms</text><text class="s" x="299" y="600">(QUERY)</text>
+        <line class="thin" x1="8" y1="624" x2="332" y2="624" marker-start="url(#arr)" marker-end="url(#arr)"/>
+        <text class="t code" x="170" y="618">53 ms</text><text class="s" x="170" y="636">(HTTP TIME · ALSO THE NEXT REQUEST)</text>
+      </svg>
+      <p class="cap">The first request takes 153 ms. The time axis of the ladder is to scale. The next request on the same connection needs no DNS query and no handshake.</p>
+    </div>
+  </div>
+
+</div>
+</div>
+<div id="hud">Scroll: zoom · Drag: pan · Double-click: fit · <span id="zoom">100%</span></div>
+<script>
+  const stage = document.getElementById('stage');
+  const zoomLabel = document.getElementById('zoom');
+  const MARGIN = 16;
+  const MAX_SCALE = 8;
+  let scale = 1, x = 0, y = 0, fitScale = 1, isFitted = true;
+
+  function apply() {
+    stage.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+    zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+  }
+
+  function fit() {
+    const width = stage.offsetWidth, height = stage.offsetHeight;
+    fitScale = Math.min((innerWidth - 2 * MARGIN) / width, (innerHeight - 2 * MARGIN) / height);
+    scale = fitScale;
+    x = (innerWidth - width * scale) / 2;
+    y = (innerHeight - height * scale) / 2;
+    isFitted = true;
+    apply();
+  }
+
+  addEventListener('wheel', (event) => {
+    event.preventDefault();
+    const next = Math.min(MAX_SCALE, Math.max(fitScale * 0.5, scale * Math.exp(-event.deltaY * 0.0015)));
+    x = event.clientX - (event.clientX - x) * (next / scale);
+    y = event.clientY - (event.clientY - y) * (next / scale);
+    scale = next;
+    isFitted = false;
+    apply();
+  }, { passive: false });
+
+  let drag = null;
+  addEventListener('pointerdown', (event) => {
+    drag = { px: event.clientX, py: event.clientY, x, y };
+    document.body.classList.add('panning');
+  });
+  addEventListener('pointermove', (event) => {
+    if (!drag) return;
+    x = drag.x + event.clientX - drag.px;
+    y = drag.y + event.clientY - drag.py;
+    isFitted = false;
+    apply();
+  });
+  const endDrag = () => { drag = null; document.body.classList.remove('panning'); };
+  addEventListener('pointerup', endDrag);
+  addEventListener('pointercancel', endDrag);
+  addEventListener('dblclick', fit);
+  addEventListener('resize', () => { if (isFitted) fit(); });
+  fit();
+</script>
+</body>
+</html>

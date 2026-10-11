@@ -4,7 +4,29 @@ An agent skill that explains a subject as a blueprint sheet: one HTML file in th
 
 Give it a system, a module, a process or a general concept. The agent does the research, draws the sheet and examines a render of it before it shows you the result.
 
-<!-- Examples: add two or three screenshots of real sheets here before the first release. -->
+[![Blueprint sheet: HTTPS request through a load balancer](examples/load-balancer-blueprint.png)](examples/load-balancer-blueprint.png)
+
+## Examples
+
+The agent made each of these sheets from one prompt. Select a picture to see it at full size. The HTML files are in [`examples/`](examples); download one and open it in a browser to use the zoom.
+
+### How a B-tree splits a node
+
+`/blueprint how a B-tree splits a node`
+
+[![Blueprint sheet: how a B-tree splits a node](examples/b-tree-split-blueprint.png)](examples/b-tree-split-blueprint.png)
+
+### How Git stores a commit
+
+`/blueprint how Git stores a commit`
+
+[![Blueprint sheet: how Git stores a commit](examples/git-commit-blueprint.png)](examples/git-commit-blueprint.png)
+
+### HTTPS request through a load balancer
+
+`/blueprint an HTTPS request through a load balancer`
+
+The picture is at the top of this page. The file is [`examples/load-balancer-blueprint.html`](examples/load-balancer-blueprint.html).
 
 ## What is on a sheet
 
