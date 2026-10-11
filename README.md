@@ -25,7 +25,7 @@ The file contains all its styles, drawings and scripts. It loads no fonts, scrip
 ### Claude Code plugin
 
 ```
-/plugin marketplace add Omerl98/blueprint-skill
+/plugin marketplace add omerlehrer/blueprint-skill
 /plugin install blueprint@omer-lehrer
 ```
 
@@ -34,7 +34,7 @@ The file contains all its styles, drawings and scripts. It loads no fonts, scrip
 The skill uses the Agent Skills format (`SKILL.md`), so it works in each agent that reads that format.
 
 ```sh
-git clone https://github.com/Omerl98/blueprint-skill
+git clone https://github.com/omerlehrer/blueprint-skill
 cp -r blueprint-skill/skills/blueprint ~/.claude/skills/blueprint
 ```
 
