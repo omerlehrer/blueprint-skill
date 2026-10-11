@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUBJECT Blueprint</title>
+<style>
+  :root {
+    --paper: #153a93;
+    --ink: #eef3ff;
+    --ink-dim: rgba(238, 243, 255, 0.72);
+    --grid-minor: rgba(255, 255, 255, 0.055);
+    --grid-major: rgba(255, 255, 255, 0.11);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    height: 100vh;
+    overflow: hidden;
+    cursor: grab;
+    color: var(--ink);
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(var(--grid-major) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+      linear-gradient(var(--grid-minor) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+    background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace;
+    font-size: 11px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    line-height: 1.55;
+  }
+  body.panning { cursor: grabbing; user-select: none; }
+  #stage { position: absolute; left: 0; top: 0; width: 2440px; transform-origin: 0 0; }
+  .sheet { border: 1px solid var(--ink); padding: 18px; display: grid; grid-template-columns: 1240px repeat(3, 1fr); gap: 18px; }
+  .main { min-width: 0; }
+  .side { border: 1px solid var(--ink); display: flex; flex-direction: column; min-width: 0; }
+  .side .panel { border-left: 0; border-top: 1px solid var(--ink); }
+  .side .panel:first-child { border-top: 0; }
+  .side .panel:last-child { flex: 1; }
+  #hud { position: fixed; right: 12px; bottom: 10px; font-size: 9.5px; color: var(--ink-dim);
+    background: var(--paper); border: 1px solid var(--ink-dim); padding: 4px 9px; cursor: default; }
+  .head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .block { border: 1px solid var(--ink); padding: 10px 14px; min-width: 250px; }
+  .block dt { font-size: 9px; color: var(--ink-dim); margin-top: 8px; }
+  .block dt:first-child { margin-top: 0; }
+  .block dd { margin: 0; font-size: 13px; }
+  .block dd.big { font-size: 17px; letter-spacing: 0.14em; }
+  dl { margin: 0; }
+  svg { display: block; width: 100%; height: auto; }
+  svg text { fill: var(--ink); font-family: inherit; letter-spacing: 0.08em; }
+  .row { display: grid; border: 1px solid var(--ink); margin-top: 18px; }
+  .row.three { grid-template-columns: repeat(3, 1fr); }
+  .panel { padding: 12px 14px; border-left: 1px solid var(--ink); min-width: 0; }
+  .panel:first-child { border-left: 0; }
+  h2 { margin: 0 0 10px; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; }
+  ol, ul { margin: 0; padding: 0; list-style: none; }
+  ol li { display: grid; grid-template-columns: 26px 1fr; margin-bottom: 7px; }
+  ol li b {
+    width: 18px; height: 18px; border: 1px solid var(--ink); border-radius: 50%;
+    font-weight: 400; font-size: 10px; text-align: center; line-height: 16px; letter-spacing: 0;
+  }
+  ul li { padding-left: 14px; position: relative; margin-bottom: 7px; }
+  ul li::before { content: ""; position: absolute; left: 0; top: 6px; width: 4px; height: 4px; border-radius: 50%; background: var(--ink); }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 2px 0; vertical-align: top; }
+  td:first-child { white-space: nowrap; padding-right: 14px; }
+  .dims td:last-child { text-align: right; white-space: nowrap; }
+  .index td:last-child { color: var(--ink-dim); }
+  .index th { text-align: left; font-weight: 400; font-size: 9px; letter-spacing: 0.16em; padding: 9px 0 3px; border-bottom: 1px solid var(--ink-dim); }
+  .index tr:first-child th { padding-top: 0; }
+  .index td { padding-top: 3px; }
+  .cap { color: var(--ink-dim); font-size: 9.5px; margin-top: 8px; }
+  .code, svg text.code { text-transform: none; }
+  ol li span, ul li, .cap, .index td:last-child { text-transform: none; letter-spacing: 0.04em; }
+</style>
+</head>
+<body>
+<div id="stage">
+<div class="sheet">
+
+  <!-- MAIN COLUMN: header, main drawing, three detail views. -->
+  <div class="main">
+  <div class="head">
+    <div class="block">
+      <dl>
+        <dt>Date:</dt>
+        <dd>YYYY-MM-DD</dd>
+        <dt>Repo:</dt>
+        <dd>Repository name</dd>
+        <dt>Subject:</dt>
+        <dd class="big">Subject name</dd>
+      </dl>
+    </div>
+  </div>
+
+  <svg viewBox="0 0 1200 640" role="img" aria-label="Main drawing" style="margin-top:14px">
+    <defs>
+      <marker id="arr" markerWidth="9" markerHeight="7" refX="8.5" refY="3.5" orient="auto-start-reverse">
+        <path d="M0,0 L9,3.5 L0,7 z" fill="#eef3ff"/>
+      </marker>
+      <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="6" stroke="#eef3ff" stroke-opacity="0.2" stroke-width="1"/>
+      </pattern>
+      <pattern id="cross" width="8" height="8" patternUnits="userSpaceOnUse">
+        <path d="M0,0 H8 M0,0 V8" stroke="#eef3ff" stroke-opacity="0.16" stroke-width="1" fill="none"/>
+      </pattern>
+    </defs>
+    <style>
+      .ln { stroke: #eef3ff; stroke-width: 1.2; fill: none; }
+      .bx { stroke: #eef3ff; stroke-width: 1.2; fill: #153a93; }
+      .hx { stroke: #eef3ff; stroke-width: 1.2; fill: url(#hatch); }
+      .cx { stroke: #eef3ff; stroke-width: 1.2; fill: url(#cross); }
+      .dash { stroke-dasharray: 6 4; }
+      .thin { stroke: #eef3ff; stroke-width: 0.8; fill: none; }
+      .t { font-size: 10px; text-anchor: middle; }
+      .h { font-size: 11.5px; text-anchor: middle; letter-spacing: 0.14em; }
+      .s { font-size: 7.8px; text-anchor: middle; fill-opacity: 0.75; }
+      .bl { fill: #153a93; stroke: #eef3ff; stroke-width: 1.1; }
+      .bt { font-size: 9.5px; text-anchor: middle; letter-spacing: 0; }
+      .zn { stroke: #eef3ff; stroke-width: 2.2; fill: none; }
+      .z { font-size: 13px; text-anchor: middle; letter-spacing: 0.22em; }
+      .ic { stroke: #eef3ff; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+
+    <!-- group frame (.zn) with its title (.z) -->
+    <rect class="zn" x="40" y="44" width="520" height="300"/>
+    <text class="z" x="300" y="32">GROUP TITLE</text>
+
+    <!-- plain box (.bx), hatched box (.hx), cross-hatched box (.cx), dashed box (.bx.dash) -->
+    <rect class="bx" x="70" y="90" width="180" height="60"/>
+    <!-- Lucide icon (.ic): 14 px, centered above the title. The shapes use the 24 x 24 grid of Lucide. -->
+    <g class="ic" transform="translate(153,96) scale(0.5833)"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></g>
+    <text class="t" x="160" y="126">COMPONENT</text><text class="s" x="160" y="140">SHORT ROLE · SECOND FACT</text>
+    <rect class="hx" x="350" y="90" width="180" height="60"/><text class="t" x="440" y="124">HATCHED KIND</text>
+    <rect class="cx" x="70" y="230" width="180" height="60"/><text class="t" x="160" y="264">STORED DATA</text>
+    <rect class="bx dash" x="350" y="230" width="180" height="60"/><text class="t" x="440" y="264">EXTERNAL</text>
+
+    <!-- call (solid), stream (dashed), elbow path; each ends on a box edge -->
+    <line class="ln" x1="250" y1="110" x2="350" y2="110" marker-end="url(#arr)"/>
+    <line class="ln dash" x1="350" y1="134" x2="250" y2="134" marker-end="url(#arr)"/>
+    <path class="ln" d="M160,150 V230" marker-end="url(#arr)"/>
+
+    <!-- numbered balloons sit on the lines; the legend panel explains each number -->
+    <circle class="bl" cx="300" cy="110" r="9"/><text class="bt" x="300" y="113.5">1</text>
+    <circle class="bl" cx="300" cy="134" r="9"/><text class="bt" x="300" y="137.5">2</text>
+
+    <!-- dimension line: two extension lines, one double-arrow line, value above, name in parentheses below -->
+    <path class="thin" d="M70,300 V330 M250,300 V330"/>
+    <line class="thin" x1="70" y1="322" x2="250" y2="322" marker-start="url(#arr)" marker-end="url(#arr)"/>
+    <text class="t" x="160" y="316">16.0</text><text class="s" x="160" y="338">(REAL QUANTITY)</text>
+  </svg>
+
+  <div class="row three">
+    <div class="panel">
+      <h2>View A: name</h2>
+      <svg viewBox="0 0 380 230" role="img" aria-label="View A"></svg>
+      <p class="cap">Caption.</p>
+    </div>
+    <div class="panel">
+      <h2>View B: name</h2>
+      <svg viewBox="0 0 380 230" role="img" aria-label="View B"></svg>
+      <p class="cap">Caption.</p>
+    </div>
+    <div class="panel">
+      <h2>View C: name</h2>
+      <svg viewBox="0 0 380 230" role="img" aria-label="View C"></svg>
+      <p class="cap">Caption.</p>
+    </div>
+  </div>
+  </div>
+
+  <!-- SIDE COLUMN 1: sequence, key dimensions. -->
+  <div class="side">
+    <div class="panel">
+      <h2>Sequence</h2>
+      <ol>
+        <li><b>1</b><span>One short sentence for each numbered balloon.</span></li>
+        <li><b>2</b><span>Use the active voice. Give one fact in each sentence.</span></li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h2>Key dimensions</h2>
+      <table class="dims">
+        <tr><td>Quantity</td><td>Value</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- SIDE COLUMN 2: index. -->
+  <div class="side">
+    <div class="panel">
+      <h2>Index</h2>
+      <table class="index">
+        <tr><th colspan="2">Group</th></tr>
+        <tr><td>part</td><td>Role of the part</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- SIDE COLUMN 3: notes, detail drawing. -->
+  <div class="side">
+    <div class="panel">
+      <h2>Notes:</h2>
+      <ul>
+        <li>One fact.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h2>Detail: name</h2>
+      <svg viewBox="0 0 380 190" role="img" aria-label="Detail"></svg>
+    </div>
+  </div>
+
+</div>
+</div>
+<div id="hud">Scroll: zoom · Drag: pan · Double-click: fit · <span id="zoom">100%</span></div>
+<script>
+  const stage = document.getElementById('stage');
+  const zoomLabel = document.getElementById('zoom');
+  const MARGIN = 16;
+  const MAX_SCALE = 8;
+  let scale = 1, x = 0, y = 0, fitScale = 1, isFitted = true;
+
+  function apply() {
+    stage.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+    zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+  }
+
+  function fit() {
+    const width = stage.offsetWidth, height = stage.offsetHeight;
+    fitScale = Math.min((innerWidth - 2 * MARGIN) / width, (innerHeight - 2 * MARGIN) / height);
+    scale = fitScale;
+    x = (innerWidth - width * scale) / 2;
+    y = (innerHeight - height * scale) / 2;
+    isFitted = true;
+    apply();
+  }
+
+  addEventListener('wheel', (event) => {
+    event.preventDefault();
+    const next = Math.min(MAX_SCALE, Math.max(fitScale * 0.5, scale * Math.exp(-event.deltaY * 0.0015)));
+    x = event.clientX - (event.clientX - x) * (next / scale);
+    y = event.clientY - (event.clientY - y) * (next / scale);
+    scale = next;
+    isFitted = false;
+    apply();
+  }, { passive: false });
+
+  let drag = null;
+  addEventListener('pointerdown', (event) => {
+    drag = { px: event.clientX, py: event.clientY, x, y };
+    document.body.classList.add('panning');
+  });
+  addEventListener('pointermove', (event) => {
+    if (!drag) return;
+    x = drag.x + event.clientX - drag.px;
+    y = drag.y + event.clientY - drag.py;
+    isFitted = false;
+    apply();
+  });
+  const endDrag = () => { drag = null; document.body.classList.remove('panning'); };
+  addEventListener('pointerup', endDrag);
+  addEventListener('pointercancel', endDrag);
+  addEventListener('dblclick', fit);
+  addEventListener('resize', () => { if (isFitted) fit(); });
+  fit();
+</script>
+</body>
+</html>

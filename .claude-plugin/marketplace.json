@@ -1,0 +1,14 @@
+{
+  "name": "omer-lehrer",
+  "description": "Agent skills by Omer Lehrer.",
+  "owner": {
+    "name": "Omer Lehrer"
+  },
+  "plugins": [
+    {
+      "name": "blueprint",
+      "source": "./",
+      "description": "Explain a system, a module, a process or a concept as a blueprint sheet: one HTML file in the white-on-blue technical drawing style."
+    }
+  ]
+}

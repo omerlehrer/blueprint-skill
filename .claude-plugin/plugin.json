@@ -1,0 +1,8 @@
+{
+  "name": "blueprint",
+  "description": "Explain a system, a module, a process or a concept as a blueprint sheet: one HTML file in the white-on-blue technical drawing style.",
+  "version": "0.1.0",
+  "author": { "name": "Omer Lehrer" },
+  "license": "MIT",
+  "keywords": ["diagram", "explainer", "architecture", "blueprint", "svg"]
+}
